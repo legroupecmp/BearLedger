@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vérificateur Bear Ledger</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Libre+Franklin:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#eee8da;
+    --surface:#ffffff;
+    --surface-2:#f4f0e5;
+    --border:#e1dac8;
+    --text:#1b2540;
+    --text-muted:#7a8598;
+    --accent:#1b2540;
+    --accent-strong:#0f172c;
+    --accent-soft:#e3e6ee;
+    --on-accent:#ffffff;
+    --good:#1f7a45;
+    --good-soft:#dceee0;
+    --warn:#93650a;
+    --warn-soft:#f5eac9;
+    --bad:#a5322b;
+    --bad-soft:#f6deda;
+    --pending:#7a8598;
+    --pending-soft:#eceef2;
+    --shadow: 0 1px 2px rgba(27,37,64,.06), 0 8px 24px -12px rgba(27,37,64,.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10182c;
+      --surface:#182140;
+      --surface-2:#1f2a4d;
+      --border:#2c3860;
+      --text:#ede8da;
+      --text-muted:#8d96ac;
+      --accent:#a9bce3;
+      --accent-strong:#cdd9f2;
+      --accent-soft:#24304f;
+      --on-accent:#0f172c;
+      --good:#4fb37e;
+      --good-soft:#17301f;
+      --warn:#d6a53f;
+      --warn-soft:#352a12;
+      --bad:#e0847b;
+      --bad-soft:#3a211d;
+      --pending:#8d96ac;
+      --pending-soft:#232d45;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 30px -14px rgba(0,0,0,.65);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10182c;
+    --surface:#182140;
+    --surface-2:#1f2a4d;
+    --border:#2c3860;
+    --text:#ede8da;
+    --text-muted:#8d96ac;
+    --accent:#a9bce3;
+    --accent-strong:#cdd9f2;
+    --accent-soft:#24304f;
+    --on-accent:#0f172c;
+    --good:#4fb37e;
+    --good-soft:#17301f;
+    --warn:#d6a53f;
+    --warn-soft:#352a12;
+    --bad:#e0847b;
+    --bad-soft:#3a211d;
+    --pending:#8d96ac;
+    --pending-soft:#232d45;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 30px -14px rgba(0,0,0,.65);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Libre Franklin', system-ui, sans-serif;
+    line-height:1.45;
+  }
+  .app{ max-width:1040px; margin:0 auto; padding:32px 20px 56px; }
+
+  header.top{ padding-bottom:20px; margin-bottom:26px; border-bottom:1px solid var(--border); }
+  header.top h1{
+    font-family:'Spectral', Georgia, serif;
+    font-weight:700; font-size:2rem; letter-spacing:-0.01em;
+    margin:0; text-wrap:balance;
+  }
+  header.top .mark{ color:var(--accent); }
+  header.top p{ margin:.4em 0 0; color:var(--text-muted); font-size:.95rem; max-width:60ch; }
+
+  h2.section-title{
+    font-family:'Spectral', Georgia, serif;
+    font-weight:600; font-size:1.08rem; margin:0 0 4px;
+  }
+  .section-sub{ color:var(--text-muted); font-size:.85rem; margin:0 0 14px; }
+
+  .layout{
+    display:grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr);
+    gap:24px; align-items:start;
+  }
+  .result-col{ position:sticky; top:20px; }
+  @media (max-width: 860px){
+    .layout{ grid-template-columns: 1fr; }
+    .result-col{ position:static; }
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+    padding:22px 22px 24px;
+  }
+
+  .example-note{
+    margin:0 0 6px; padding:9px 12px; font-size:.82rem;
+    background:var(--accent-soft); color:var(--text); border-radius:7px;
+  }
+  .example-note[hidden]{ display:none; }
+
+  .crit-row{
+    display:grid; grid-template-columns: 28px 1fr auto;
+    column-gap:14px; align-items:center;
+    padding:13px 0; border-top:1px solid var(--border);
+  }
+  .crit-row.first{ border-top:none; }
+  .crit-rank{
+    font-family:'IBM Plex Mono', monospace; font-size:.78rem; font-weight:600;
+    color:var(--accent); background:var(--accent-soft);
+    border-radius:5px; text-align:center; padding:3px 0;
+  }
+  .crit-main{ min-width:0; }
+  .crit-label{ font-weight:600; font-size:.93rem; }
+  .crit-threshold{ color:var(--text-muted); font-size:.76rem; font-family:'IBM Plex Mono',monospace; }
+  .crit-input-wrap{ display:flex; align-items:center; gap:6px; justify-self:end; }
+  input[type="number"]{
+    width:92px; padding:7px 9px;
+    border:1px solid var(--border); border-radius:6px;
+    background:var(--surface-2); color:var(--text);
+    font-family:'IBM Plex Mono', monospace; font-size:.92rem;
+    font-variant-numeric: tabular-nums; text-align:right;
+  }
+  input[type="number"]:focus, .toggle button:focus-visible, .btn:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+  .unit{ color:var(--text-muted); font-size:.82rem; width:2.4em; }
+  .toggle{ display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+  .toggle button{
+    border:none; background:var(--surface-2); color:var(--text-muted);
+    font-family:'Libre Franklin', system-ui, sans-serif; font-size:.82rem; font-weight:600;
+    padding:7px 14px; cursor:pointer;
+  }
+  .toggle button.active{ background:var(--accent); color:var(--on-accent); }
+  .toggle button.active.is-bad{ background:var(--bad); color:#fff; }
+
+  .form-actions{ margin-top:18px; }
+  .btn{
+    font-family:'Libre Franklin', system-ui, sans-serif; font-weight:600; font-size:.86rem;
+    border-radius:7px; padding:9px 16px; cursor:pointer;
+    background:transparent; border:1px solid var(--border); color:var(--text);
+  }
+  .btn:hover{ background:var(--surface-2); }
+
+  .result-header{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .verdict-pill{
+    display:inline-flex; align-items:center; gap:6px; flex:0 0 auto;
+    font-weight:700; font-size:.76rem; text-transform:uppercase; letter-spacing:.03em;
+    padding:6px 12px; border-radius:999px; white-space:nowrap;
+  }
+  .verdict-pill::before{ content:''; width:7px; height:7px; border-radius:50%; background:currentColor; }
+
+  .score-block{ margin:18px 0 4px; }
+  .score-number{
+    font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:2.9rem; line-height:1;
+    font-variant-numeric: tabular-nums;
+  }
+  .score-number .pct-sign{ font-size:1.3rem; color:var(--text-muted); margin-left:2px; }
+  .score-bar{ height:8px; border-radius:999px; background:var(--surface-2); margin-top:14px; overflow:hidden; }
+  .score-bar-fill{ height:100%; width:0%; border-radius:999px; transition:width .4s ease, background .3s ease; }
+  .score-caption{ margin:10px 0 0; color:var(--text-muted); font-size:.86rem; }
+
+  .checklist{ margin-top:20px; border-top:1px solid var(--border); }
+  .check-row{ display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--border); }
+  .check-row:last-child{ border-bottom:none; }
+  .check-icon{
+    flex:0 0 auto; width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.7rem; font-weight:700;
+  }
+  .check-icon.is-pass{ background:var(--good-soft); color:var(--good); }
+  .check-icon.is-fail{ background:var(--bad-soft); color:var(--bad); }
+  .check-icon.is-pending{ background:var(--pending-soft); color:var(--pending); }
+  .check-label{ flex:1; font-size:.9rem; font-weight:500; min-width:0; }
+  .check-value{
+    font-family:'IBM Plex Mono', monospace; font-size:.82rem; color:var(--text-muted);
+    font-variant-numeric: tabular-nums; white-space:nowrap;
+  }
+
+  footer.note{
+    margin-top:26px; font-size:.78rem; color:var(--text-muted); line-height:1.6;
+    border-top:1px solid var(--border); padding-top:16px; max-width:80ch;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <h1>Bear<span class="mark">.</span>Ledger</h1>
+    <p>Entre les données d'un titre et vois tout de suite combien de critères de la stratégie de short selling il respecte. Les critères sont classés du plus important (01) au moins important (07).</p>
+  </header>
+
+  <div class="layout">
+    <div class="card">
+      <h2 class="section-title">Données du titre</h2>
+      <p class="section-sub">Remplis les 7 champs avec les chiffres de ton titre.</p>
+      <p class="example-note" id="example-note">Valeurs d'exemple chargées — remplace-les par celles de ton titre, ou clique sur « Nouvelle analyse ».</p>
+      <div id="criteria-list"></div>
+      <div class="form-actions">
+        <button class="btn" id="btn-clear" type="button">Nouvelle analyse</button>
+      </div>
+    </div>
+
+    <div class="result-col">
+      <div class="card">
+        <div class="result-header">
+          <div>
+            <h2 class="section-title">Résultat</h2>
+            <p class="section-sub">Score pondéré selon l'importance de chaque critère.</p>
+          </div>
+          <span class="verdict-pill" id="verdict-pill">—</span>
+        </div>
+
+        <div class="score-block">
+          <div class="score-number" id="score-number"><span id="score-value">0</span><span class="pct-sign">%</span></div>
+          <div class="score-bar"><div class="score-bar-fill" id="score-bar-fill"></div></div>
+          <p class="score-caption" id="verdict-desc"></p>
+        </div>
+
+        <div class="checklist" id="checklist-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">
+    Outil éducatif, pas un conseil financier — le short selling comporte un risque de perte illimité. Rien n'est enregistré : les valeurs saisies restent dans ta page et disparaissent quand tu la fermes.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var CRITERIA = [
+    { key:'cash', rank:1, label:'Cash runway', threshold:'< 10 mois', weight:25,
+      kind:'number', placeholder:'6', unit:'mois', step:'1',
+      test:function(v){ return Number(v) < 10; }, fmt:function(v){ return v + ' mois'; } },
+    { key:'inst', rank:2, label:'Propriété institutionnelle', threshold:'< 10 %', weight:21,
+      kind:'number', placeholder:'6', unit:'%', step:'0.1',
+      test:function(v){ return Number(v) < 10; }, fmt:function(v){ return v + ' %'; } },
+    { key:'news', rank:3, label:'Nouvelle justifiant la hausse', threshold:'Aucune nouvelle', weight:18,
+      kind:'toggle',
+      test:function(v){ return v === 'non'; }, fmt:function(v){ return v === 'oui' ? 'Oui' : 'Non'; } },
+    { key:'shortfloat', rank:4, label:'Short float', threshold:'< 10 %', weight:14,
+      kind:'number', placeholder:'4.5', unit:'%', step:'0.1',
+      test:function(v){ return Number(v) < 10; }, fmt:function(v){ return v + ' %'; } },
+    { key:'sharesfloat', rank:5, label:'Shares float', threshold:'1 – 10 millions', weight:11,
+      kind:'number', placeholder:'3.2', unit:'M', step:'0.1',
+      test:function(v){ return Number(v) >= 1 && Number(v) <= 10; }, fmt:function(v){ return v + ' M'; } },
+    { key:'premarket', rank:6, label:'Variation premarché', threshold:'≥ 60 %', weight:7,
+      kind:'number', placeholder:'85', unit:'%', step:'1',
+      test:function(v){ return Number(v) >= 60; }, fmt:function(v){ return v + ' %'; } },
+    { key:'price', rank:7, label:"Prix de l'action", threshold:'1 $ – 10 $', weight:4,
+      kind:'number', placeholder:'4.25', unit:'$', step:'0.01',
+      test:function(v){ return Number(v) >= 1 && Number(v) <= 10; }, fmt:function(v){ return v + ' $'; } }
+  ];
+
+  var EXAMPLE = { cash:'6', inst:'6', news:'non', shortfloat:'4.5', sharesfloat:'3.2', premarket:'85', price:'4.25' };
+
+  var values = {};
+  var setters = {};
+
+  var listEl = document.getElementById('criteria-list');
+  var checklistEl = document.getElementById('checklist-body');
+  var scoreNumberEl = document.getElementById('score-number');
+  var scoreValueEl = document.getElementById('score-value');
+  var scoreBarFill = document.getElementById('score-bar-fill');
+  var pillEl = document.getElementById('verdict-pill');
+  var descEl = document.getElementById('verdict-desc');
+  var noteEl = document.getElementById('example-note');
+
+  function hideNote(){ noteEl.hidden = true; }
+
+  function buildForm(){
+    CRITERIA.forEach(function(c, i){
+      var row = document.createElement('div');
+      row.className = 'crit-row' + (i === 0 ? ' first' : '');
+
+      var rank = document.createElement('div');
+      rank.className = 'crit-rank';
+      rank.textContent = ('0' + c.rank).slice(-2);
+
+      var main = document.createElement('div');
+      main.className = 'crit-main';
+      main.innerHTML = '<div class="crit-label">' + c.label + '</div>' +
+        '<div class="crit-threshold">' + c.threshold + ' · poids ' + c.weight + ' %</div>';
+
+      var wrap = document.createElement('div');
+      wrap.className = 'crit-input-wrap';
+
+      if(c.kind === 'number'){
+        var input = document.createElement('input');
+        input.type = 'number';
+        input.step = c.step; input.min = '0';
+        input.placeholder = c.placeholder;
+        input.setAttribute('inputmode', 'decimal');
+        input.setAttribute('aria-label', c.label);
+        input.addEventListener('input', function(){ values[c.key] = input.value; hideNote(); recompute(); });
+        var unit = document.createElement('span');
+        unit.className = 'unit'; unit.textContent = c.unit;
+        wrap.appendChild(input); wrap.appendChild(unit);
+        setters[c.key] = function(v){ input.value = v; values[c.key] = v; };
+      } else {
+        var toggle = document.createElement('div');
+        toggle.className = 'toggle';
+        toggle.setAttribute('role', 'group');
+        toggle.setAttribute('aria-label', c.label);
+        var btnOui = document.createElement('button'); btnOui.type = 'button'; btnOui.textContent = 'Oui';
+        var btnNon = document.createElement('button'); btnNon.type = 'button'; btnNon.textContent = 'Non';
+        var setNews = function(v){
+          values[c.key] = v;
+          btnOui.classList.toggle('active', v === 'oui');
+          btnOui.classList.toggle('is-bad', v === 'oui');
+          btnNon.classList.toggle('active', v === 'non');
+          btnOui.setAttribute('aria-pressed', v === 'oui');
+          btnNon.setAttribute('aria-pressed', v === 'non');
+        };
+        btnOui.addEventListener('click', function(){ setNews('oui'); hideNote(); recompute(); });
+        btnNon.addEventListener('click', function(){ setNews('non'); hideNote(); recompute(); });
+        toggle.appendChild(btnOui); toggle.appendChild(btnNon);
+        wrap.appendChild(toggle);
+        setters[c.key] = setNews;
+      }
+
+      row.appendChild(rank); row.appendChild(main); row.appendChild(wrap);
+      listEl.appendChild(row);
+    });
+  }
+
+  function verdictFor(score){
+    if(score >= 80) return { key:'good', label:'Signal fort', desc:'La majorité des critères prioritaires sont respectés.' };
+    if(score >= 50) return { key:'warn', label:'À surveiller', desc:'Certains critères clés manquent — creuse davantage avant d’agir.' };
+    return { key:'bad', label:'Faible probabilité', desc:'Trop peu de critères respectés, surtout parmi les plus importants.' };
+  }
+
+  function recompute(){
+    var total = 0, earned = 0, pending = 0;
+    var rows = [];
+    CRITERIA.forEach(function(c){
+      total += c.weight;
+      var v = values[c.key];
+      var status = 'pending';
+      if(v !== undefined && v !== ''){
+        status = c.test(v) ? 'pass' : 'fail';
+        if(status === 'pass') earned += c.weight;
+      } else { pending++; }
+      rows.push({ c:c, status:status, v:v });
+    });
+
+    var score = Math.round((earned / total) * 1000) / 10;
+    scoreValueEl.textContent = score % 1 === 0 ? String(score) : score.toFixed(1);
+    scoreBarFill.style.width = score + '%';
+
+    if(pending > 0){
+      var done = CRITERIA.length - pending;
+      pillEl.textContent = 'Incomplet · ' + done + '/' + CRITERIA.length;
+      pillEl.style.background = 'var(--pending-soft)';
+      pillEl.style.color = 'var(--pending)';
+      scoreNumberEl.style.color = 'var(--text)';
+      scoreBarFill.style.background = 'var(--accent)';
+      descEl.textContent = done === 0
+        ? 'Remplis les champs pour voir le score.'
+        : 'Score provisoire — il reste ' + pending + ' critère' + (pending > 1 ? 's' : '') + ' à remplir pour le verdict final.';
+    } else {
+      var vd = verdictFor(score);
+      pillEl.textContent = vd.label;
+      pillEl.style.background = 'var(--' + vd.key + '-soft)';
+      pillEl.style.color = 'var(--' + vd.key + ')';
+      scoreNumberEl.style.color = 'var(--' + vd.key + ')';
+      scoreBarFill.style.background = 'var(--' + vd.key + ')';
+      descEl.textContent = vd.desc;
+    }
+
+    checklistEl.innerHTML = '';
+    rows.forEach(function(r){
+      var cls = r.status === 'pass' ? 'is-pass' : r.status === 'fail' ? 'is-fail' : 'is-pending';
+      var glyph = r.status === 'pass' ? '✓' : r.status === 'fail' ? '✗' : '•';
+      var val = r.status === 'pending' ? '—' : r.c.fmt(r.v);
+      var el = document.createElement('div');
+      el.className = 'check-row';
+      el.innerHTML = '<span class="check-icon ' + cls + '">' + glyph + '</span>' +
+        '<span class="check-label">' + r.c.label + '</span>' +
+        '<span class="check-value">' + val + '</span>';
+      checklistEl.appendChild(el);
+    });
+  }
+
+  document.getElementById('btn-clear').addEventListener('click', function(){
+    CRITERIA.forEach(function(c){ setters[c.key](''); });
+    hideNote();
+    recompute();
+  });
+
+  buildForm();
+  CRITERIA.forEach(function(c){ setters[c.key](EXAMPLE[c.key]); });
+  recompute();
+})();
+</script>
+
+</body>
+</html>
